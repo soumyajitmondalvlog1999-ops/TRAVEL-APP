@@ -135,5 +135,129 @@ def generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_
             
         day_plan_2.append({"icon": "🍽️", "time": "08:30 PM", "activity": f"Dinner at a {random.choice(list(eateries.values()))} in {destination}."})
         
+        # --- THIS IS THE CORRECTED LINE ---
         itinerary_data.append({
-            "type": "day_card", "day_num": day_counter, "route": f"Arrive at {destination} (
+            "type": "day_card", "day_num": day_counter, "route": f"Arrive at {destination} (Leg 2/2)",
+            "events": day_plan_2, "budget": daily_costs
+        })
+        day_counter += 1
+
+    return itinerary_data
+
+# --- (B) Streamlit UI ---
+st.set_page_config(page_title="Your Travel and Adventure", layout="wide", page_icon="🏞️")
+st.markdown("""<style> .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; } </style>""", unsafe_allow_html=True)
+
+st.title("🏞️ YOUR TRAVEL AND ADVENTURE")
+st.caption("AI-Powered Itinerary Planner for India")
+
+# --- Sidebar (Inputs) ---
+with st.sidebar:
+    st.header("Plan Your Trip")
+    places_input = st.text_area("Destinations (in order)", "Delhi, Manali, Leh", height=100)
+    transport_mode = st.selectbox("Mode of Transport", ["Personal Bike", "Personal Car", "Rented Bike", "Rented Car", "Public Transport"])
+    
+    st.subheader("Dates")
+    start_date = st.date_input("Start", datetime.date.today())
+    
+    # --- UPDATED: Flexible Date Logic ---
+    is_flexible = st.checkbox("I have a flexible end date", value=True)
+    if is_flexible:
+        end_date = None
+        st.caption("We will suggest an optimal duration for your trip.")
+    else:
+        end_d_default = start_date + datetime.timedelta(days=7)
+        end_date = st.date_input("End", end_d_default)
+    
+    st.subheader("Preferences")
+    hotel_pref = st.select_slider("Hotel Class", ["Cheap", "Standard", "Branded"], value="Standard")
+    food_pref = st.select_slider("Food Class", ["Cheap", "Standard", "Branded"], value="Standard")
+    
+    generate_btn = st.button("🚀 Generate Itinerary", type="primary", use_container_width=True)
+
+# --- Main Display Area ---
+if generate_btn:
+    places_list = [p.strip() for p in places_input.split(',') if p.strip()]
+    is_peak = start_date.month in [5, 6, 12, 1]
+    
+    if len(places_list) < 2:
+        st.error("Please enter at least two destinations.")
+    else:
+        # --- UPDATED: Duration logic is now flexible ---
+        
+        # 1. Generate the itinerary FIRST to see how many days it takes
+        structured_data = generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_mode)
+        generated_duration = structured_data[-1]['day_num'] # Get the last day number
+        
+        # 2. Set the final duration based on user's choice
+        if is_flexible:
+            final_duration = generated_duration
+            st.info(f"👍 Based on your route, we suggest an optimal **{final_duration}-day** trip.")
+        else:
+            final_duration = (end_date - start_date).days + 1
+            if final_duration <= 0:
+                st.error("Error: End date must be after the start date.")
+                st.stop() # Stop execution
+            elif final_duration < generated_duration:
+                st.warning(f"Note: Your {final_duration}-day plan is very rushed! Our suggested plan is {generated_duration} days.")
+            elif final_duration > generated_duration:
+                st.info(f"You have {final_duration - generated_duration} extra buffer days in your {final_duration}-day plan. Perfect for rest!")
+
+        # 3. Calculate budget with the final_duration
+        budget = calculate_total_budget(transport_mode, hotel_pref, food_pref, final_duration, is_peak)
+        
+        # 4. Display Metrics
+        col_b1, col_b2, col_b3 = st.columns(3)
+        col_b1.metric("Total Budget", f"₹{budget:,}")
+        col_b2.metric("Duration", f"{final_duration} Days")
+        col_b3.metric("Travel Mode", transport_mode)
+        st.divider()
+        
+        # 5. Display Permits
+        perms = get_special_permissions(places_list)
+        
+        if "No special permits" not in perms[0]:
+            st.warning("⚠️ **Permits Required:** " + ", ".join(perms))
+        
+        # 6. Display Rental Info (if applicable)
+        if transport_mode in ["Rented Bike", "Rented Car"]:
+            with st.expander(f"**Rental Options for {transport_mode} from {places_list[0]}**", expanded=True):
+                rentals = get_rental_options(places_list[0], transport_mode)
+                r_c1, r_c2, r_c3 = st.columns(3)
+                r_c1.markdown("**Agency**"); r_c2.markdown("**Example Model**"); r_c3.markdown("**Est. Price/Day**")
+                for rental in rentals:
+                    r_c1, r_c2, r_c3 = st.columns(3)
+                    r_c1.write(rental['name']); r_c2.write(rental['model']); r_c3.write(f"₹{rental['price']:,}")
+        
+        # 7. Display the Itinerary
+        st.subheader("🗺️ Your Day-by-Day Plan")
+        for item in structured_data:
+            if item["type"] == "leg_header":
+                st.markdown(f"### {item['text']}")
+            elif item["type"] == "day_card":
+                with st.container(border=True):
+                    c_day, c_details = st.columns([1, 5])
+                    with c_day:
+                        st.markdown(f"## Day {item['day_num']}")
+                        st.caption(item['route'])
+                    with c_details:
+                        for event in item['events']:
+                            if event['icon'] == "HOTEL":
+                                st.info(f"**{event['time']} | Stay:** {event['activity']}")
+                            else:
+                                st.write(f"{event['icon']} **{event['time']}:** {event['activity']}")
+                        
+                        with st.expander("💰 **Show Daily Budget Breakdown**"):
+                            budget = item['budget']
+                            st.markdown(f"* **Stay:** `₹{budget['stay']:,}`\n* **Transport:** `₹{budget['fuel_transport']:,}`\n* **Food:** `₹{budget['food']:,}`\n* **Contingency:** `₹{budget['contingency']:,}`\n* **Day Total:** `₹{budget['total_per_day']:,}`")
+        
+        st.success("Trip planning complete! Have a safe adventure.")
+
+elif not generate_btn:
+    st.info("👈 Use the sidebar menu to plan your adventure!")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image("https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=800&q=80", caption="Explore Incredible India")
+    with col2:
+        # Also fixed a typo in this image URL (https. -> https://)
+        st.image("https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80", caption="Adventure Awaits")
