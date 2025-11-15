@@ -233,4 +233,9 @@ elif not generate_btn:
     # Placeholder when app loads
     st.info("👈 Use the sidebar menu to plan your adventure!")
     col1, col2 = st.columns(2)
-    with col1:     with col2: ```
+    
+    # FIXED SECTION: Added actual image URLs instead of placeholder text
+    with col1:
+        st.image("https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=800&q=80", caption="Explore Incredible India")
+    with col2:
+        st.image("https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80", caption="Adventure Awaits")
