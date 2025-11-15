@@ -60,6 +60,7 @@ def get_special_permissions(places_list):
     perms = [f"{p}: {v}" for p in places_list for k, v in db.items() if k in p.lower()]
     return perms if perms else ["No special permits found in database."]
 
+
 # --- NEW: Function for Public Transport Simulation ---
 def get_public_transport_recommendation(origin, destination):
     """
@@ -135,82 +136,4 @@ def generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_
         day_plan_2.append({"icon": "🍽️", "time": "08:30 PM", "activity": f"Dinner at a {random.choice(list(eateries.values()))} in {destination}."})
         
         itinerary_data.append({
-            "type": "day_card", "day_num": day_counter, "route": f"Arrive at {destination} (Leg 2/2)",
-            "events": day_plan_2, "budget": daily_costs
-        })
-        day_counter += 1
-
-    return itinerary_data
-
-# --- (B) Streamlit UI ---
-st.set_page_config(page_title="Your Travel and Adventure", layout="wide", page_icon="🏞️")
-st.markdown("""<style> .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; } </style>""", unsafe_allow_html=True)
-
-st.title("🏞️ YOUR TRAVEL AND ADVENTURE")
-st.caption("AI-Powered Itinerary Planner for India")
-
-# --- Sidebar (Inputs) ---
-with st.sidebar:
-    st.header("Plan Your Trip")
-    places_input = st.text_area("Destinations (in order)", "Delhi, Manali, Leh", height=100)
-    transport_mode = st.selectbox("Mode of Transport", ["Personal Bike", "Personal Car", "Rented Bike", "Rented Car", "Public Transport"])
-    
-    st.subheader("Dates")
-    start_date = st.date_input("Start", datetime.date.today())
-    
-    # --- UPDATED: Flexible Date Logic ---
-    is_flexible = st.checkbox("I have a flexible end date", value=True)
-    if is_flexible:
-        end_date = None
-        st.caption("We will suggest an optimal duration for your trip.")
-    else:
-        end_d_default = start_date + datetime.timedelta(days=7)
-        end_date = st.date_input("End", end_d_default)
-    
-    st.subheader("Preferences")
-    hotel_pref = st.select_slider("Hotel Class", ["Cheap", "Standard", "Branded"], value="Standard")
-    food_pref = st.select_slider("Food Class", ["Cheap", "Standard", "Branded"], value="Standard")
-    
-    generate_btn = st.button("🚀 Generate Itinerary", type="primary", use_container_width=True)
-
-# --- Main Display Area ---
-if generate_btn:
-    places_list = [p.strip() for p in places_input.split(',') if p.strip()]
-    is_peak = start_date.month in [5, 6, 12, 1]
-    
-    if len(places_list) < 2:
-        st.error("Please enter at least two destinations.")
-    else:
-        # --- UPDATED: Duration logic is now flexible ---
-        
-        # 1. Generate the itinerary FIRST to see how many days it takes
-        structured_data = generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_mode)
-        generated_duration = structured_data[-1]['day_num'] # Get the last day number
-        
-        # 2. Set the final duration based on user's choice
-        if is_flexible:
-            final_duration = generated_duration
-            st.info(f"👍 Based on your route, we suggest an optimal **{final_duration}-day** trip.")
-        else:
-            final_duration = (end_date - start_date).days + 1
-            if final_duration <= 0:
-                st.error("Error: End date must be after the start date.")
-                st.stop() # Stop execution
-            elif final_duration < generated_duration:
-                st.warning(f"Note: Your {final_duration}-day plan is very rushed! Our suggested plan is {generated_duration} days.")
-            elif final_duration > generated_duration:
-                st.info(f"You have {final_duration - generated_duration} extra buffer days in your {final_duration}-day plan. Perfect for rest!")
-
-        # 3. Calculate budget with the final_duration
-        budget = calculate_total_budget(transport_mode, hotel_pref, food_pref, final_duration, is_peak)
-        
-        # 4. Display Metrics
-        col_b1, col_b2, col_b3 = st.columns(3)
-        col_b1.metric("Total Budget", f"₹{budget:,}")
-        col_b2.metric("Duration", f"{final_duration} Days")
-        col_b3.metric("Travel Mode", transport_mode)
-        st.divider()
-        
-        # 5. Display Permits
-        perms = get_special_permissions(places_list)
-        if "No special permits" not in perms
+            "type": "day_card", "day_num": day_counter, "route": f"Arrive at {destination} (
