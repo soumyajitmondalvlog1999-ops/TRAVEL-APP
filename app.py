@@ -4,9 +4,9 @@ import time
 import random
 
 # --- (A) V5: Enhanced Simulation & Data Functions ---
+# (All functions are the same as before)
 
 def get_rental_options(origin_city, transport_mode):
-    # (Same as before)
     db = {
         "delhi": {
             "Rented Bike": [{"name": "Delhi Bike Rentals", "model": "Himalayan 411", "price": 2200}],
@@ -21,7 +21,6 @@ def get_rental_options(origin_city, transport_mode):
     return [{"name": f"No specific agencies in DB for {origin_city}", "model": "N/A", "price": 0}]
 
 def get_daily_costs(mode, hotel_pref, food_pref):
-    # (Same as before)
     costs = {}
     costs['fuel_transport'] = {"Personal Bike": 1200, "Personal Car": 2500, "Rented Bike": 1800, "Rented Car": 4000, "Public Transport": 2800}.get(mode, 2000)
     costs['stay'] = {"Cheap": 1200, "Standard": 2800, "Branded": 8000}.get(hotel_pref, 2000)
@@ -32,7 +31,6 @@ def get_daily_costs(mode, hotel_pref, food_pref):
     return costs
 
 def calculate_total_budget(mode, hotel_pref, food_pref, duration_days, is_peak_season):
-    # (Same as before)
     daily = get_daily_costs(mode, hotel_pref, food_pref)
     total_fuel_transport = daily['fuel_transport'] * duration_days
     total_food = daily['food'] * duration_days
@@ -43,7 +41,6 @@ def calculate_total_budget(mode, hotel_pref, food_pref, duration_days, is_peak_s
     return int(final_budget)
 
 def get_sightseeing_spots(location):
-    # (Same as before)
     sightseeing_db = {
         "delhi": ["India Gate", "Red Fort", "Qutub Minar"], "agra": ["Taj Mahal", "Agra Fort"],
         "jaipur": ["Hawa Mahal", "Amber Fort"], "manali": ["Hadimba Temple", "Solang Valley"],
@@ -55,19 +52,12 @@ def get_sightseeing_spots(location):
     return sightseeing_db.get(loc_lower, ["Local City Center", "Famous Local Market"])
 
 def get_special_permissions(places_list):
-    # (Same as before)
     db = {"leh": "ILP Required", "ladakh": "ILP Required", "manali": "Rohtang Permit", "sikkim": "PAP Required", "tawang": "ILP Required"}
     perms = [f"{p}: {v}" for p in places_list for k, v in db.items() if k in p.lower()]
     return perms if perms else ["No special permits found in database."]
 
-
-# --- NEW: Function for Public Transport Simulation ---
 def get_public_transport_recommendation(origin, destination):
-    """
-    Simulates the best public transport mode for a leg.
-    """
     origin, dest = origin.lower(), destination.lower()
-    
     if "leh" in dest or "ladakh" in dest:
         return f"Fly from {origin.capitalize()} to Leh (IXL). This is the fastest and most reliable route."
     if "delhi" in origin and "manali" in dest:
@@ -76,12 +66,8 @@ def get_public_transport_recommendation(origin, destination):
         return "Take the morning Shatabdi Express or Gatimaan Express train. It's fast (2 hours)."
     if "kolkata" in origin and "delhi" in dest:
         return f"Take a direct flight (CCU -> DEL) or an overnight train (e.g., Rajdhani Express)."
-    
-    # Generic fallback
     return f"Look for overnight state transport buses or direct trains from {origin.capitalize()} to {destination.capitalize()}."
 
-
-# --- UPDATED: Itinerary function now handles Public Transport ---
 def generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_mode):
     itinerary_data = []
     day_counter = 1
@@ -92,13 +78,10 @@ def generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_
     for i in range(len(places_list) - 1):
         origin = places_list[i]
         destination = places_list[i+1]
-        
         itinerary_data.append({"type": "leg_header", "text": f"Leg {i+1}: {origin} ➔ {destination}"})
         
-        # --- Generate Day 1 (Travel Day) ---
+        # Day 1
         day_plan = []
-        
-        # --- Logic fork based on transport mode ---
         if transport_mode == "Public Transport":
             recommendation = get_public_transport_recommendation(origin, destination)
             day_plan.append({"icon": "☕", "time": "08:00 AM", "activity": f"Breakfast at {origin} and head to the bus/train station or airport."})
@@ -106,47 +89,61 @@ def generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_
             day_plan.append({"icon": "📸", "time": "11:00 AM", "activity": f"Quickly visit: {', '.join(spots[:1])}."})
             day_plan.append({"icon": "🎫", "time": "02:00 PM", "activity": f"**Travel:** {recommendation}"})
             day_plan.append({"icon": "HOTEL", "time": "09:00 PM", "activity": "Arrive at your destination or travel overnight."})
-        else: # Personal or Rented
+        else:
             day_plan.append({"icon": "☕", "time": "08:00 AM", "activity": f"Breakfast at {origin}."})
             spots = get_sightseeing_spots(origin)
             day_plan.append({"icon": "📸", "time": "10:00 AM", "activity": f"Visit: {', '.join(spots[:2])}."})
             mid_point = "Scenic Highway Stop"
             day_plan.append({"icon": "🚗", "time": "01:00 PM", "activity": f"Drive towards {destination}. Stop for lunch at a {random.choice(list(eateries.values()))}."})
             day_plan.append({"icon": "HOTEL", "time": "07:00 PM", "activity": f"Halt at {mid_point}. Check into a {stays[hotel_pref]}."})
-        
-        itinerary_data.append({
-            "type": "day_card", "day_num": day_counter, "route": f"{origin} ➔ {destination} (Leg 1/2)",
-            "events": day_plan, "budget": daily_costs
-        })
+        itinerary_data.append({"type": "day_card", "day_num": day_counter, "route": f"{origin} ➔ {destination} (Leg 1/2)", "events": day_plan, "budget": daily_costs})
         day_counter += 1
         
-        # --- Generate Day 2 (Arrival & Explore) ---
+        # Day 2
         day_plan_2 = []
         dest_spots = get_sightseeing_spots(destination)
-        
         if transport_mode == "Public Transport":
             day_plan_2.append({"icon": "🏁", "time": "09:00 AM", "activity": f"Arrive in **{destination}**. Check into your {stays[hotel_pref]}."})
             day_plan_2.append({"icon": "🚕", "time": "11:00 AM", "activity": "Hire a local auto/taxi for sightseeing."})
             day_plan_2.append({"icon": "📸", "time": "01:00 PM", "activity": f"Explore {destination}: Visit {', '.join(dest_spots)}."})
-        else: # Personal or Rented
+        else:
             day_plan_2.append({"icon": "🛣️", "time": "09:00 AM", "activity": "Resume journey. Enjoy the landscape."})
             day_plan_2.append({"icon": "🏁", "time": "02:00 PM", "activity": f"Arrive in **{destination}**! Check into your {stays[hotel_pref]}."})
             day_plan_2.append({"icon": "📸", "time": "04:00 PM", "activity": f"Explore {destination}: Visit {', '.join(dest_spots)}."})
-            
         day_plan_2.append({"icon": "🍽️", "time": "08:30 PM", "activity": f"Dinner at a {random.choice(list(eateries.values()))} in {destination}."})
-        
-        # --- THIS IS THE CORRECTED LINE ---
-        itinerary_data.append({
-            "type": "day_card", "day_num": day_counter, "route": f"Arrive at {destination} (Leg 2/2)",
-            "events": day_plan_2, "budget": daily_costs
-        })
+        itinerary_data.append({"type": "day_card", "day_num": day_counter, "route": f"Arrive at {destination} (Leg 2/2)", "events": day_plan_2, "budget": daily_costs})
         day_counter += 1
 
     return itinerary_data
 
 # --- (B) Streamlit UI ---
 st.set_page_config(page_title="Your Travel and Adventure", layout="wide", page_icon="🏞️")
-st.markdown("""<style> .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; } </style>""", unsafe_allow_html=True)
+
+# --- UPDATED: Added Google Font import and font-family rules ---
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@400;600&display=swap');
+
+    /* Base font for the app */
+    html, body, [class*="st-"], .st-emotion-cache-10trblm {
+       font-family: 'Poppins', sans-serif;
+    }
+    
+    /* Title font */
+    h1, .st-emotion-cache-183lzff {
+       font-family: 'Playfair Display', serif;
+       font-weight: 700;
+       letter-spacing: 0.5px;
+    }
+    
+    /* Other metric styles */
+    .stMetric { 
+        background-color: #f0f2f6; 
+        padding: 10px; 
+        border-radius: 10px; 
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🏞️ YOUR TRAVEL AND ADVENTURE")
 st.caption("AI-Powered Itinerary Planner for India")
@@ -160,7 +157,6 @@ with st.sidebar:
     st.subheader("Dates")
     start_date = st.date_input("Start", datetime.date.today())
     
-    # --- UPDATED: Flexible Date Logic ---
     is_flexible = st.checkbox("I have a flexible end date", value=True)
     if is_flexible:
         end_date = None
@@ -183,43 +179,39 @@ if generate_btn:
     if len(places_list) < 2:
         st.error("Please enter at least two destinations.")
     else:
-        # --- UPDATED: Duration logic is now flexible ---
-        
-        # 1. Generate the itinerary FIRST to see how many days it takes
+        # Generate itinerary
         structured_data = generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_mode)
-        generated_duration = structured_data[-1]['day_num'] # Get the last day number
+        generated_duration = structured_data[-1]['day_num']
         
-        # 2. Set the final duration based on user's choice
+        # Set duration
         if is_flexible:
             final_duration = generated_duration
             st.info(f"👍 Based on your route, we suggest an optimal **{final_duration}-day** trip.")
         else:
             final_duration = (end_date - start_date).days + 1
             if final_duration <= 0:
-                st.error("Error: End date must be after the start date.")
-                st.stop() # Stop execution
+                st.error("Error: End date must be after the start date."); st.stop()
             elif final_duration < generated_duration:
                 st.warning(f"Note: Your {final_duration}-day plan is very rushed! Our suggested plan is {generated_duration} days.")
             elif final_duration > generated_duration:
                 st.info(f"You have {final_duration - generated_duration} extra buffer days in your {final_duration}-day plan. Perfect for rest!")
 
-        # 3. Calculate budget with the final_duration
+        # Calculate budget
         budget = calculate_total_budget(transport_mode, hotel_pref, food_pref, final_duration, is_peak)
         
-        # 4. Display Metrics
+        # Display Metrics
         col_b1, col_b2, col_b3 = st.columns(3)
         col_b1.metric("Total Budget", f"₹{budget:,}")
         col_b2.metric("Duration", f"{final_duration} Days")
         col_b3.metric("Travel Mode", transport_mode)
         st.divider()
         
-        # 5. Display Permits
+        # Display Permits
         perms = get_special_permissions(places_list)
-        
         if "No special permits" not in perms[0]:
             st.warning("⚠️ **Permits Required:** " + ", ".join(perms))
         
-        # 6. Display Rental Info (if applicable)
+        # Display Rental Info
         if transport_mode in ["Rented Bike", "Rented Car"]:
             with st.expander(f"**Rental Options for {transport_mode} from {places_list[0]}**", expanded=True):
                 rentals = get_rental_options(places_list[0], transport_mode)
@@ -229,7 +221,7 @@ if generate_btn:
                     r_c1, r_c2, r_c3 = st.columns(3)
                     r_c1.write(rental['name']); r_c2.write(rental['model']); r_c3.write(f"₹{rental['price']:,}")
         
-        # 7. Display the Itinerary
+        # Display Itinerary
         st.subheader("🗺️ Your Day-by-Day Plan")
         for item in structured_data:
             if item["type"] == "leg_header":
@@ -253,11 +245,27 @@ if generate_btn:
         
         st.success("Trip planning complete! Have a safe adventure.")
 
+# --- UPDATED: New welcome screen logic ---
 elif not generate_btn:
-    st.info("👈 Use the sidebar menu to plan your adventure!")
+    st.info("👈 **Welcome! Use the sidebar menu to plan your adventure.**")
+    
+    st.subheader("How It Works")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("### 🗺️ 1. Plan Your Route")
+        st.write("Enter your destinations in order, separated by commas (e.g., `Kolkata, Delhi, Leh`).")
+    with col2:
+        st.markdown("### ⚙️ 2. Set Your Style")
+        st.write("Choose your transport, budget class, and let us know if your dates are flexible.")
+    with col3:
+        st.markdown("### 🚀 3. Get Your Itinerary")
+        st.write("Receive a detailed day-by-day plan with budgets, rental options, and sightseeing tips.")
+        
+    st.divider()
+    
+    st.subheader("Inspiration for Your Next Ride")
     col1, col2 = st.columns(2)
     with col1:
         st.image("https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=800&q=80", caption="Explore Incredible India")
     with col2:
-        # Also fixed a typo in this image URL (https. -> https://)
         st.image("https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80", caption="Adventure Awaits")
