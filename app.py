@@ -119,14 +119,14 @@ def generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_
 # --- (B) Streamlit UI ---
 st.set_page_config(page_title="Your Travel and Adventure", layout="wide", page_icon="🏞️")
 
-# --- UPDATED: Added Google Font import and font-family rules ---
+# --- UPDATED: Swapped 'Poppins' for 'Raleway' ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@400;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Raleway:wght@400;600&display=swap');
 
     /* Base font for the app */
     html, body, [class*="st-"], .st-emotion-cache-10trblm {
-       font-family: 'Poppins', sans-serif;
+       font-family: 'Raleway', sans-serif;
     }
     
     /* Title font */
@@ -245,7 +245,7 @@ if generate_btn:
         
         st.success("Trip planning complete! Have a safe adventure.")
 
-# --- UPDATED: New welcome screen logic ---
+# (Welcome Screen)
 elif not generate_btn:
     st.info("👈 **Welcome! Use the sidebar menu to plan your adventure.**")
     
