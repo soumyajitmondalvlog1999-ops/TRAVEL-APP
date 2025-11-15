@@ -2,9 +2,45 @@ import streamlit as st
 import datetime
 import time
 import random
+import pandas as pd  # <-- ADD THIS IMPORT
 
-# --- (A) V5: Enhanced Simulation & Data Functions ---
-# (All functions are the same as before)
+# --- (A) V8: Enhanced Simulation & Data Functions ---
+
+# --- NEW: Dummy geocoder to get coordinates for st.map ---
+def get_dummy_coordinates(places_list):
+    """
+    Looks up hard-coded coordinates for cities to plot on st.map.
+    In a real app, this would be a Google Geocoding API call.
+    """
+    coordinates_db = {
+        "delhi": {"lat": 28.7041, "lon": 77.1025},
+        "manali": {"lat": 32.2432, "lon": 77.1890},
+        "leh": {"lat": 34.1526, "lon": 77.5771},
+        "ladakh": {"lat": 34.1526, "lon": 77.5771},
+        "kolkata": {"lat": 22.5726, "lon": 88.3639},
+        "varanasi": {"lat": 25.3176, "lon": 82.9739},
+        "mumbai": {"lat": 19.0760, "lon": 72.8777},
+        "goa": {"lat": 15.2993, "lon": 74.1240},
+        "chennai": {"lat": 13.0827, "lon": 80.2707},
+        "bangalore": {"lat": 12.9716, "lon": 77.5946},
+        "jaipur": {"lat": 26.9124, "lon": 75.7873},
+        "agra": {"lat": 27.1767, "lon": 78.0081},
+        "srinagar": {"lat": 34.0837, "lon": 74.7973},
+        "jammu": {"lat": 32.7266, "lon": 74.8570},
+        "spiti": {"lat": 32.2470, "lon": 78.0280},
+    }
+    
+    map_data = []
+    for place in places_list:
+        key = place.lower().strip()
+        if key in coordinates_db:
+            map_data.append(coordinates_db[key])
+    
+    if not map_data:
+        return pd.DataFrame()
+        
+    return pd.DataFrame(map_data)
+
 
 def get_rental_options(origin_city, transport_mode):
     db = {
@@ -46,13 +82,14 @@ def get_sightseeing_spots(location):
         "jaipur": ["Hawa Mahal", "Amber Fort"], "manali": ["Hadimba Temple", "Solang Valley"],
         "leh": ["Pangong Lake", "Shanti Stupa"], "ladakh": ["Nubra Valley", "Khardung La"],
         "kolkata": ["Victoria Memorial", "Howrah Bridge"], "varanasi": ["Kashi Vishwanath Temple", "Ganga Aarti"],
-        "jammu": ["Raghath Temple", "Bahu Fort"], "srinagar": ["Dal Lake", "Mughal Gardens"]
+        "jammu": ["Raghath Temple", "Bahu Fort"], "srinagar": ["Dal Lake", "Mughal Gardens"],
+        "spiti": ["Key Monastery", "Chandratal Lake"]
     }
     loc_lower = location.lower().strip()
     return sightseeing_db.get(loc_lower, ["Local City Center", "Famous Local Market"])
 
 def get_special_permissions(places_list):
-    db = {"leh": "ILP Required", "ladakh": "ILP Required", "manali": "Rohtang Permit", "sikkim": "PAP Required", "tawang": "ILP Required"}
+    db = {"leh": "ILP Required", "ladakh": "ILP Required", "manali": "Rohtang Permit", "sikkim": "PAP Required", "tawang": "ILP Required", "spiti": "Inner Line Permit (for foreigners)"}
     perms = [f"{p}: {v}" for p in places_list for k, v in db.items() if k in p.lower()]
     return perms if perms else ["No special permits found in database."]
 
@@ -119,24 +156,17 @@ def generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_
 # --- (B) Streamlit UI ---
 st.set_page_config(page_title="Your Travel and Adventure", layout="wide", page_icon="🏞️")
 
-# --- UPDATED: Swapped 'Poppins' for 'Raleway' ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Raleway:wght@400;600&display=swap');
-
-    /* Base font for the app */
     html, body, [class*="st-"], .st-emotion-cache-10trblm {
        font-family: 'Raleway', sans-serif;
     }
-    
-    /* Title font */
     h1, .st-emotion-cache-183lzff {
        font-family: 'Playfair Display', serif;
        font-weight: 700;
        letter-spacing: 0.5px;
     }
-    
-    /* Other metric styles */
     .stMetric { 
         background-color: #f0f2f6; 
         padding: 10px; 
@@ -179,11 +209,9 @@ if generate_btn:
     if len(places_list) < 2:
         st.error("Please enter at least two destinations.")
     else:
-        # Generate itinerary
         structured_data = generate_structured_itinerary(places_list, hotel_pref, food_pref, transport_mode)
         generated_duration = structured_data[-1]['day_num']
         
-        # Set duration
         if is_flexible:
             final_duration = generated_duration
             st.info(f"👍 Based on your route, we suggest an optimal **{final_duration}-day** trip.")
@@ -196,22 +224,28 @@ if generate_btn:
             elif final_duration > generated_duration:
                 st.info(f"You have {final_duration - generated_duration} extra buffer days in your {final_duration}-day plan. Perfect for rest!")
 
-        # Calculate budget
         budget = calculate_total_budget(transport_mode, hotel_pref, food_pref, final_duration, is_peak)
         
-        # Display Metrics
         col_b1, col_b2, col_b3 = st.columns(3)
         col_b1.metric("Total Budget", f"₹{budget:,}")
         col_b2.metric("Duration", f"{final_duration} Days")
         col_b3.metric("Travel Mode", transport_mode)
         st.divider()
         
-        # Display Permits
+        # --- NEW MAP SECTION ---
+        st.subheader("🗺️ Your Visual Route")
+        map_data = get_dummy_coordinates(places_list)
+        if not map_data.empty:
+            st.map(map_data, zoom=4)
+            st.caption("Map shows the key destinations on your route.")
+        else:
+            st.caption("Map data not available for these locations in the prototype.")
+        # --- END NEW MAP SECTION ---
+
         perms = get_special_permissions(places_list)
         if "No special permits" not in perms[0]:
             st.warning("⚠️ **Permits Required:** " + ", ".join(perms))
         
-        # Display Rental Info
         if transport_mode in ["Rented Bike", "Rented Car"]:
             with st.expander(f"**Rental Options for {transport_mode} from {places_list[0]}**", expanded=True):
                 rentals = get_rental_options(places_list[0], transport_mode)
@@ -221,8 +255,7 @@ if generate_btn:
                     r_c1, r_c2, r_c3 = st.columns(3)
                     r_c1.write(rental['name']); r_c2.write(rental['model']); r_c3.write(f"₹{rental['price']:,}")
         
-        # Display Itinerary
-        st.subheader("🗺️ Your Day-by-Day Plan")
+        st.subheader("🗓️ Your Day-by-Day Plan")
         for item in structured_data:
             if item["type"] == "leg_header":
                 st.markdown(f"### {item['text']}")
@@ -248,7 +281,6 @@ if generate_btn:
 # (Welcome Screen)
 elif not generate_btn:
     st.info("👈 **Welcome! Use the sidebar menu to plan your adventure.**")
-    
     st.subheader("How It Works")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -260,9 +292,7 @@ elif not generate_btn:
     with col3:
         st.markdown("### 🚀 3. Get Your Itinerary")
         st.write("Receive a detailed day-by-day plan with budgets, rental options, and sightseeing tips.")
-        
     st.divider()
-    
     st.subheader("Inspiration for Your Next Ride")
     col1, col2 = st.columns(2)
     with col1:
