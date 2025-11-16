@@ -2,14 +2,15 @@ import streamlit as st
 import datetime
 import time
 import random
-import pandas as pd
-import pydeck as pdk  # --- NEW IMPORT for advanced maps ---
+import pandas as pd  # <-- ADD THIS IMPORT
 
-# --- (A) V5: Enhanced Simulation & Data Functions ---
+# --- (A) V8: Enhanced Simulation & Data Functions ---
 
+# --- NEW: Dummy geocoder to get coordinates for st.map ---
 def get_dummy_coordinates(places_list):
     """
-    Returns coordinates and specifically formats them for the Map Path.
+    Looks up hard-coded coordinates for cities to plot on st.map.
+    In a real app, this would be a Google Geocoding API call.
     """
     coordinates_db = {
         "delhi": {"lat": 28.7041, "lon": 77.1025},
@@ -27,23 +28,19 @@ def get_dummy_coordinates(places_list):
         "srinagar": {"lat": 34.0837, "lon": 74.7973},
         "jammu": {"lat": 32.7266, "lon": 74.8570},
         "spiti": {"lat": 32.2470, "lon": 78.0280},
-        "shimla": {"lat": 31.1048, "lon": 77.1734},
-        "rishikesh": {"lat": 30.0869, "lon": 78.2676},
     }
     
-    # 1. Get list of valid coordinates in order
-    route_coords = []
-    valid_places = []
-    
+    map_data = []
     for place in places_list:
         key = place.lower().strip()
         if key in coordinates_db:
-            # Pydeck expects [Longitude, Latitude]
-            point = [coordinates_db[key]["lon"], coordinates_db[key]["lat"]]
-            route_coords.append(point)
-            valid_places.append({"name": place, "coordinates": point})
-            
-    return route_coords, valid_places
+            map_data.append(coordinates_db[key])
+    
+    if not map_data:
+        return pd.DataFrame()
+        
+    return pd.DataFrame(map_data)
+
 
 def get_rental_options(origin_city, transport_mode):
     db = {
@@ -162,9 +159,19 @@ st.set_page_config(page_title="Your Travel and Adventure", layout="wide", page_i
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Raleway:wght@400;600&display=swap');
-    html, body, [class*="st-"], .st-emotion-cache-10trblm { font-family: 'Raleway', sans-serif; }
-    h1, .st-emotion-cache-183lzff { font-family: 'Playfair Display', serif; font-weight: 700; letter-spacing: 0.5px; }
-    .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; }
+    html, body, [class*="st-"], .st-emotion-cache-10trblm {
+       font-family: 'Raleway', sans-serif;
+    }
+    h1, .st-emotion-cache-183lzff {
+       font-family: 'Playfair Display', serif;
+       font-weight: 700;
+       letter-spacing: 0.5px;
+    }
+    .stMetric { 
+        background-color: #f0f2f6; 
+        padding: 10px; 
+        border-radius: 10px; 
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,8 +183,10 @@ with st.sidebar:
     st.header("Plan Your Trip")
     places_input = st.text_area("Destinations (in order)", "Delhi, Manali, Leh", height=100)
     transport_mode = st.selectbox("Mode of Transport", ["Personal Bike", "Personal Car", "Rented Bike", "Rented Car", "Public Transport"])
+    
     st.subheader("Dates")
     start_date = st.date_input("Start", datetime.date.today())
+    
     is_flexible = st.checkbox("I have a flexible end date", value=True)
     if is_flexible:
         end_date = None
@@ -185,9 +194,11 @@ with st.sidebar:
     else:
         end_d_default = start_date + datetime.timedelta(days=7)
         end_date = st.date_input("End", end_d_default)
+    
     st.subheader("Preferences")
     hotel_pref = st.select_slider("Hotel Class", ["Cheap", "Standard", "Branded"], value="Standard")
     food_pref = st.select_slider("Food Class", ["Cheap", "Standard", "Branded"], value="Standard")
+    
     generate_btn = st.button("🚀 Generate Itinerary", type="primary", use_container_width=True)
 
 # --- Main Display Area ---
@@ -206,9 +217,12 @@ if generate_btn:
             st.info(f"👍 Based on your route, we suggest an optimal **{final_duration}-day** trip.")
         else:
             final_duration = (end_date - start_date).days + 1
-            if final_duration <= 0: st.error("Error: End date must be after the start date."); st.stop()
-            elif final_duration < generated_duration: st.warning(f"Note: Your {final_duration}-day plan is very rushed! Our suggested plan is {generated_duration} days.")
-            elif final_duration > generated_duration: st.info(f"You have {final_duration - generated_duration} extra buffer days. Perfect for rest!")
+            if final_duration <= 0:
+                st.error("Error: End date must be after the start date."); st.stop()
+            elif final_duration < generated_duration:
+                st.warning(f"Note: Your {final_duration}-day plan is very rushed! Our suggested plan is {generated_duration} days.")
+            elif final_duration > generated_duration:
+                st.info(f"You have {final_duration - generated_duration} extra buffer days in your {final_duration}-day plan. Perfect for rest!")
 
         budget = calculate_total_budget(transport_mode, hotel_pref, food_pref, final_duration, is_peak)
         
@@ -218,59 +232,15 @@ if generate_btn:
         col_b3.metric("Travel Mode", transport_mode)
         st.divider()
         
-        # --- NEW: Advanced Route Map with Pydeck ---
+        # --- NEW MAP SECTION ---
         st.subheader("🗺️ Your Visual Route")
-        
-        # 1. Get Data
-        route_coords, valid_places_data = get_dummy_coordinates(places_list)
-        
-        if len(route_coords) > 0:
-            # 2. Define Layers
-            
-            # Layer 1: The Path (Line)
-            layer_path = pdk.Layer(
-                "PathLayer",
-                data=[{"path": route_coords, "name": "Route"}],
-                pickable=True,
-                get_color=[255, 75, 75], # Reddish color
-                width_scale=20,
-                width_min_pixels=3,
-                get_path="path",
-                get_width=5000,
-            )
-            
-            # Layer 2: The Cities (Dots)
-            layer_scatter = pdk.Layer(
-                "ScatterplotLayer",
-                data=valid_places_data,
-                get_position="coordinates",
-                get_color=[0, 128, 255], # Blue color
-                get_radius=15000, # Radius in meters
-                pickable=True,
-            )
-            
-            # 3. Set View State (Center the map)
-            # Center on the first city in the list
-            initial_view_state = pdk.ViewState(
-                latitude=route_coords[0][1],
-                longitude=route_coords[0][0],
-                zoom=5,
-                pitch=0,
-            )
-            
-            # 4. Render
-            r = pdk.Deck(
-                layers=[layer_path, layer_scatter],
-                initial_view_state=initial_view_state,
-                tooltip={"text": "{name}"}, # Show city name on hover
-                map_style="mapbox://styles/mapbox/outdoors-v11"
-            )
-            st.pydeck_chart(r)
-            st.caption("Map shows the direct path between your destinations.")
+        map_data = get_dummy_coordinates(places_list)
+        if not map_data.empty:
+            st.map(map_data, zoom=4)
+            st.caption("Map shows the key destinations on your route.")
         else:
-            st.warning("Could not find coordinates for these cities in the prototype database.")
-        
-        # --- END Map Section ---
+            st.caption("Map data not available for these locations in the prototype.")
+        # --- END NEW MAP SECTION ---
 
         perms = get_special_permissions(places_list)
         if "No special permits" not in perms[0]:
@@ -301,12 +271,14 @@ if generate_btn:
                                 st.info(f"**{event['time']} | Stay:** {event['activity']}")
                             else:
                                 st.write(f"{event['icon']} **{event['time']}:** {event['activity']}")
+                        
                         with st.expander("💰 **Show Daily Budget Breakdown**"):
                             budget = item['budget']
                             st.markdown(f"* **Stay:** `₹{budget['stay']:,}`\n* **Transport:** `₹{budget['fuel_transport']:,}`\n* **Food:** `₹{budget['food']:,}`\n* **Contingency:** `₹{budget['contingency']:,}`\n* **Day Total:** `₹{budget['total_per_day']:,}`")
         
         st.success("Trip planning complete! Have a safe adventure.")
 
+# (Welcome Screen)
 elif not generate_btn:
     st.info("👈 **Welcome! Use the sidebar menu to plan your adventure.**")
     st.subheader("How It Works")
